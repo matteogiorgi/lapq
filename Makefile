@@ -61,7 +61,7 @@ package:
 docs: $(REPORT_PDF)
 
 $(REPORT_PDF): $(REPORT_NOTEBOOK) $(DOCS_DIR)/references.bib $(REPORT_TEMPLATE)
-	$(JUPYTER) nbconvert $< --to pdf --template-file $(REPORT_TEMPLATE) --no-prompt --TagRemovePreprocessor.enabled=True --TagRemovePreprocessor.remove_input_tags='["hide"]' --output $(REPORT_BASENAME) --output-dir $(DOCS_DIR)
+	$(JUPYTER) nbconvert $< --to pdf --template-file $(REPORT_TEMPLATE) --no-prompt --TagRemovePreprocessor.enabled=True --TagRemovePreprocessor.remove_input_tags='["hide"]' --TagRemovePreprocessor.remove_all_outputs_tags='["hide-output"]' --output $(REPORT_BASENAME) --output-dir $(DOCS_DIR)
 
 clean:
 	rm -rf $(BUILD_DIR)

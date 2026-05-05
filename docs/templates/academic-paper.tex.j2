@@ -1,7 +1,7 @@
 ((* extends 'latex/index.tex.j2' *))
 
 ((* block docclass *))
-\documentclass[10pt,twocolumn]{article}
+\documentclass[11pt,oneside]{report}
 ((* endblock docclass *))
 
 ((* block packages *))
@@ -11,32 +11,92 @@
 ((* endblock packages *))
 
 ((* block margins *))
-    \geometry{letterpaper,top=0.75in,bottom=0.85in,left=0.72in,right=0.72in,columnsep=0.24in}
+    \geometry{a4paper,top=1.05in,bottom=1.15in,left=1.05in,right=1.05in}
 ((* endblock margins *))
 
 ((* block commands *))
     ((( super() )))
     \IfFontExistsTF{TeX Gyre Termes}{\setmainfont{TeX Gyre Termes}}{}
-    \setlength{\droptitle}{-2.5em}
+    \setlength{\droptitle}{-4.5em}
     \setlength{\parindent}{1em}
-    \setlength{\parskip}{0pt}
-    \titlespacing*{\section}{0pt}{1.2ex plus 0.5ex minus 0.2ex}{0.7ex}
-    \titlespacing*{\subsection}{0pt}{1.0ex plus 0.4ex minus 0.2ex}{0.5ex}
-    \titleformat{\section}{\large\bfseries}{\thesection}{0.6em}{}
-    \titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.6em}{}
+    \setlength{\parskip}{0.25em}
+    \titlespacing*{\chapter}{0pt}{-0.5em}{1.4em}
+    \titlespacing*{\section}{0pt}{2.0ex plus 0.8ex minus 0.2ex}{0.8ex}
+    \titlespacing*{\subsection}{0pt}{1.3ex plus 0.5ex minus 0.2ex}{0.5ex}
+    \titleformat{\chapter}{\huge\bfseries}{\thechapter}{0.8em}{}
+    \titleformat{\section}{\Large\bfseries}{\thesection}{0.7em}{}
+    \titleformat{\subsection}{\large\bfseries}{\thesubsection}{0.7em}{}
+    \makeatletter
+    \let\lapq@section\section
+    \let\lapq@subsection\subsection
+    \let\lapq@subsubsection\subsubsection
+    \renewcommand{\section}{\chapter}
+    \renewcommand{\subsection}{\lapq@section}
+    \renewcommand{\subsubsection}{\lapq@subsection}
+    \makeatother
     \RecustomVerbatimEnvironment{Verbatim}{Verbatim}{fontsize=\footnotesize}
+    \renewenvironment{Shaded}
+      {\begin{tcolorbox}[
+        breakable,
+        colback=gray!5,
+        colframe=gray!35,
+        boxrule=0.35pt,
+        arc=1.5pt,
+        left=5pt,
+        right=5pt,
+        top=4pt,
+        bottom=4pt
+      ]}
+      {\end{tcolorbox}}
 ((* endblock commands *))
 
-((* block abstract *))
-((* if nb.metadata.get('abstract') *))
-\begin{abstract}
-((( nb.metadata.abstract | escape_latex )))
-\end{abstract}
+((* block date *))
+((* if 'date' in nb.metadata *))
+\date{((( nb.metadata.date | escape_latex )))}
+((* else *))
+\date{}
 ((* endif *))
-((* endblock abstract *))
+((* endblock date *))
+
+((* block predoc *))
+((* set nb_title = nb.metadata.get('title', '') or resources['metadata']['name'] *))
+\begin{titlepage}
+    \centering
+    \vspace*{0.22\textheight}
+    {\Huge\bfseries ((( nb_title | escape_latex )))\par}
+    ((* if 'date' in nb.metadata *))
+    \vspace{1.5em}
+    {\large ((( nb.metadata.date | escape_latex )))\par}
+    ((* endif *))
+    \vfill
+    {\small Generated from \texttt{docs/lapq-lib.ipynb}\par}
+\end{titlepage}
+
+((* if nb.metadata.get('abstract') *))
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+((( nb.metadata.abstract | escape_latex )))
+\clearpage
+((* endif *))
+
+\tableofcontents
+\clearpage
+((* endblock predoc *))
 
 ((* block input_group *))
+\begin{tcolorbox}[
+  breakable,
+  colback=gray!5,
+  colframe=gray!35,
+  boxrule=0.35pt,
+  arc=1.5pt,
+  left=5pt,
+  right=5pt,
+  top=4pt,
+  bottom=4pt
+]
     ((( cell.source | highlight_code(metadata=cell.metadata) )))
+\end{tcolorbox}
 ((* endblock input_group *))
 
 ((* block output_group *))
