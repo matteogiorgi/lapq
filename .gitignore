@@ -1,0 +1,14 @@
+# build artifacts and object files
+build/
+*.o
+
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# VS Code local settings
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json

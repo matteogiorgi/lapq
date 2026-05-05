@@ -1,0 +1,2 @@
+nbconvert==7.17.1
+ipykernel==6.29.5

@@ -1,0 +1,44 @@
+((* extends 'latex/index.tex.j2' *))
+
+((* block docclass *))
+\documentclass[10pt,twocolumn]{article}
+((* endblock docclass *))
+
+((* block packages *))
+    ((( super() )))
+    \usepackage{microtype}
+    \usepackage{titlesec}
+((* endblock packages *))
+
+((* block margins *))
+    \geometry{letterpaper,top=0.75in,bottom=0.85in,left=0.72in,right=0.72in,columnsep=0.24in}
+((* endblock margins *))
+
+((* block commands *))
+    ((( super() )))
+    \IfFontExistsTF{TeX Gyre Termes}{\setmainfont{TeX Gyre Termes}}{}
+    \setlength{\droptitle}{-2.5em}
+    \setlength{\parindent}{1em}
+    \setlength{\parskip}{0pt}
+    \titlespacing*{\section}{0pt}{1.2ex plus 0.5ex minus 0.2ex}{0.7ex}
+    \titlespacing*{\subsection}{0pt}{1.0ex plus 0.4ex minus 0.2ex}{0.5ex}
+    \titleformat{\section}{\large\bfseries}{\thesection}{0.6em}{}
+    \titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.6em}{}
+    \RecustomVerbatimEnvironment{Verbatim}{Verbatim}{fontsize=\footnotesize}
+((* endblock commands *))
+
+((* block abstract *))
+((* if nb.metadata.get('abstract') *))
+\begin{abstract}
+((( nb.metadata.abstract | escape_latex )))
+\end{abstract}
+((* endif *))
+((* endblock abstract *))
+
+((* block input_group *))
+    ((( cell.source | highlight_code(metadata=cell.metadata) )))
+((* endblock input_group *))
+
+((* block output_group *))
+    ((( super() )))
+((* endblock output_group *))
