@@ -217,19 +217,11 @@ static PyMethodDef PyLapqPriorityQueue_methods[] = {
 };
 
 static PySequenceMethods PyLapqPriorityQueue_sequence = {
-    .sq_length = (lenfunc)PyLapqPriorityQueue_len,
+    0
 };
 
 static PyTypeObject PyLapqPriorityQueueType = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name = "lapq.PriorityQueue",
-    .tp_basicsize = sizeof(PyLapqPriorityQueue),
-    .tp_dealloc = (destructor)PyLapqPriorityQueue_dealloc,
-    .tp_flags = Py_TPFLAGS_DEFAULT,
-    .tp_doc = "Priority queue backed by the LAPQ C skip-list core.",
-    .tp_methods = PyLapqPriorityQueue_methods,
-    .tp_as_sequence = &PyLapqPriorityQueue_sequence,
-    .tp_new = PyLapqPriorityQueue_new,
 };
 
 static PyMethodDef lapq_methods[] = {
@@ -238,16 +230,29 @@ static PyMethodDef lapq_methods[] = {
 
 static struct PyModuleDef lapq_module = {
     PyModuleDef_HEAD_INIT,
-    .m_name = "_lapq",
-    .m_doc = "C extension for LAPQ.",
-    .m_size = -1,
-    .m_methods = lapq_methods,
+    "_lapq",
+    "C extension for LAPQ.",
+    -1,
+    lapq_methods,
+    NULL,
+    NULL,
+    NULL,
+    NULL
 };
 
 PyMODINIT_FUNC PyInit__lapq(void)
 {
     PyObject *module;
 
+    PyLapqPriorityQueue_sequence.sq_length = (lenfunc)PyLapqPriorityQueue_len;
+    PyLapqPriorityQueueType.tp_name = "lapq.PriorityQueue";
+    PyLapqPriorityQueueType.tp_basicsize = sizeof(PyLapqPriorityQueue);
+    PyLapqPriorityQueueType.tp_dealloc = (destructor)PyLapqPriorityQueue_dealloc;
+    PyLapqPriorityQueueType.tp_flags = Py_TPFLAGS_DEFAULT;
+    PyLapqPriorityQueueType.tp_doc = "Priority queue backed by the LAPQ C skip-list core.";
+    PyLapqPriorityQueueType.tp_methods = PyLapqPriorityQueue_methods;
+    PyLapqPriorityQueueType.tp_as_sequence = &PyLapqPriorityQueue_sequence;
+    PyLapqPriorityQueueType.tp_new = PyLapqPriorityQueue_new;
     if (PyType_Ready(&PyLapqPriorityQueueType) < 0)
         return NULL;
     module = PyModule_Create(&lapq_module);

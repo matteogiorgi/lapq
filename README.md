@@ -94,6 +94,20 @@ This creates `dist/lapq-<version>.tar.gz` and a platform-specific wheel in
 Python version, operating system, and architecture; CI should build the full
 release matrix later.
 
+## GitHub Releases
+
+Release artifacts are built from Git tags. To publish a release:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The release workflow builds the source distribution and wheels for CPython
+3.9-3.13 on Linux, macOS, and Windows, then attaches them to a GitHub Release.
+Linux wheels include `x86_64` and `aarch64`; macOS wheels include `x86_64` and
+`arm64`; Windows wheels include `AMD64`.
+
 `make benchmark` runs insertion/extraction scenarios for baseline, perfect
 predecessor hints, noisy predecessor hints, bad hints from the left, bad hints
 from the right, plus a `decrease_key` scenario. It reports time, clean
