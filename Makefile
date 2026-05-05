@@ -4,6 +4,7 @@ CFLAGS ?= -std=c99 -Wall -Wextra -pedantic -O2
 CPPFLAGS ?= -Iinclude
 BUILD_DIR ?= build
 TEST_ENV ?=
+PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 JUPYTER ?= $(if $(wildcard .venv/bin/jupyter),.venv/bin/jupyter,jupyter)
 
 LIB := $(BUILD_DIR)/liblapq.a
@@ -18,7 +19,7 @@ REPORT_NOTEBOOK := $(DOCS_DIR)/$(REPORT_BASENAME).ipynb
 REPORT_PDF := $(DOCS_DIR)/$(REPORT_BASENAME).pdf
 REPORT_TEMPLATE := $(DOCS_DIR)/templates/academic-paper.tex.j2
 
-.PHONY: all test sanitize check benchmark docs clean
+.PHONY: all test sanitize python-test check benchmark package docs clean
 
 all: $(LIB)
 
@@ -41,13 +42,21 @@ test: $(BUILD_DIR)/lapq_test
 sanitize:
 	$(MAKE) BUILD_DIR=$(BUILD_DIR)/sanitize CFLAGS='-std=c99 -Wall -Wextra -pedantic -fsanitize=address,undefined -g' TEST_ENV='ASAN_OPTIONS=detect_leaks=0' test
 
-check: test sanitize benchmark
+python-test:
+	$(PYTHON) -m pip install --no-build-isolation -e .
+	$(PYTHON) -m pytest tests/python
+
+check: test sanitize python-test benchmark
 
 $(BUILD_DIR)/lapq_benchmark: benchmarks/lapq_benchmark.c $(LIB)
 	$(CC) $(CPPFLAGS) $(CFLAGS) benchmarks/lapq_benchmark.c $(LIB) -o $@
 
 benchmark: $(BUILD_DIR)/lapq_benchmark
 	$< 100000
+
+package:
+	rm -rf dist
+	$(PYTHON) -m build --no-isolation
 
 docs: $(REPORT_PDF)
 

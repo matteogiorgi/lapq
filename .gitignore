@@ -1,6 +1,12 @@
 # build artifacts and object files
 build/
+dist/
+*.egg-info/
 *.o
+*.so
+__pycache__/
+*.py[cod]
+.pytest_cache/
 
 # Python virtual environments
 .venv/

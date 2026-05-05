@@ -61,6 +61,39 @@ make check
 make benchmark
 ```
 
+## Python Package
+
+The Python package builds a CPython extension from the C core. For local
+development, use a virtual environment and install the package in editable mode:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pip install --no-build-isolation -e .
+```
+
+Basic usage:
+
+```python
+from lapq import PriorityQueue
+
+queue = PriorityQueue()
+queue.push(2.0, "b")
+queue.push(1.0, "a")
+assert queue.pop() == (1.0, "a")
+```
+
+Build release artifacts with:
+
+```sh
+make package
+```
+
+This creates `dist/lapq-<version>.tar.gz` and a platform-specific wheel in
+`dist/`, which can be attached to a GitHub Release. Wheels are specific to a
+Python version, operating system, and architecture; CI should build the full
+release matrix later.
+
 `make benchmark` runs insertion/extraction scenarios for baseline, perfect
 predecessor hints, noisy predecessor hints, bad hints from the left, bad hints
 from the right, plus a `decrease_key` scenario. It reports time, clean
