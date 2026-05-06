@@ -9,26 +9,46 @@
 
 #include "lapq/lapq.h"
 
+/**
+ * @file lapq_benchmark.c
+ * @brief Standalone C benchmark for LAPQ hint scenarios.
+ *
+ * The benchmark is intentionally small and reproducible. It compares ordinary
+ * insertions against perfect, noisy, and adversarial predecessor hints, then
+ * runs a separate `decrease_key` workload. It reports both wall-clock time and
+ * LAPQ's internal instrumentation counters so algorithmic behavior can be
+ * inspected independently from timing noise.
+ */
+
+/** @brief Insertion workload variant. */
 enum bench_mode {
+    /** No hints. */
     BENCH_BASELINE,
+    /** Each insertion receives the exact predecessor. */
     BENCH_PERFECT_HINT,
+    /** Each insertion receives a predecessor with controlled left error. */
     BENCH_NOISY_HINT,
+    /** Each insertion receives a very distant predecessor from the left. */
     BENCH_BAD_LEFT_HINT,
+    /** Keys are descending while hints point near the previous insertion. */
     BENCH_BAD_RIGHT_HINT
 };
 
+/** @brief Item type used by the benchmark comparator. */
 struct bench_item {
     uint64_t key;
     uint64_t id;
     struct lapq_handle handle;
 };
 
+/** @brief Aggregate prediction error for a scenario. */
 struct error_stats {
     uint64_t total;
     uint64_t max;
     uint64_t count;
 };
 
+/** @brief Command-line benchmark options. */
 struct bench_options {
     int csv;
     size_t count;

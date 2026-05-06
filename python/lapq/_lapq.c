@@ -6,18 +6,31 @@
 
 #include "lapq/lapq.h"
 
+/**
+ * @file _lapq.c
+ * @brief CPython extension that exposes the LAPQ C core to Python.
+ *
+ * The binding stores Python values inside C-owned queue items with a numeric
+ * `double` priority and a monotone insertion sequence. Handles are represented
+ * as opaque Python objects so Python experiments can pass predecessor and rank
+ * hints back to the C core without observing internal node pointers.
+ */
+
+/** @brief C-owned wrapper for one Python queue entry. */
 struct py_lapq_item {
     double key;
     uint64_t sequence;
     PyObject *value;
 };
 
+/** @brief Python `PriorityQueue` object backed by `struct lapq`. */
 typedef struct {
     PyObject_HEAD
     struct lapq *queue;
     uint64_t next_sequence;
 } PyLapqPriorityQueue;
 
+/** @brief Python wrapper for an opaque `struct lapq_handle`. */
 typedef struct {
     PyObject_HEAD
     struct lapq_handle handle;

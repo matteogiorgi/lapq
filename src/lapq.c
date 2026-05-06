@@ -2,6 +2,17 @@
 
 #include "lapq_internal.h"
 
+/**
+ * @file lapq.c
+ * @brief Public API facade for queue lifetime and top-level operations.
+ *
+ * This module translates public operations into lower-level skip-list and
+ * handle-table operations. It deliberately keeps policy small: callers own
+ * their items, handles are optional, and prediction hints are passed through to
+ * the skip-list insertion routine for validation and correction.
+ */
+
+/** @brief Monotone process-local id source used to distinguish queues. */
 static uint64_t lapq_next_id = 1;
 
 struct lapq *lapq_create(lapq_cmp_fn cmp)

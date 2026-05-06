@@ -2,6 +2,18 @@
 
 #include "lapq_internal.h"
 
+/**
+ * @file handles.c
+ * @brief Generational handle table for stable references to skip-list nodes.
+ *
+ * Handles allow callers and experiments to refer to existing nodes without
+ * exposing internal pointers. Each handle stores the queue id, a slot index,
+ * and a generation. Releasing a handle increments the generation before the
+ * slot is recycled, which prevents stale handles from resolving to unrelated
+ * future nodes.
+ */
+
+/** @brief Ensure that the handle-table slot array can store `capacity` slots. */
 static int lapq_reserve_slots(struct lapq *queue, size_t capacity)
 {
     struct lapq_handle_slot *slots;

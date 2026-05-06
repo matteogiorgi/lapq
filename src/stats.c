@@ -1,5 +1,15 @@
 #include "lapq_internal.h"
 
+/**
+ * @file stats.c
+ * @brief Instrumentation helpers for comparisons and skip-list traversal.
+ *
+ * Counters in this module are experimental observability tools. They are not
+ * part of a formal complexity contract; instead, benchmarks use them to compare
+ * baseline insertion, accurate predictions, noisy predictions, and adversarial
+ * hints under the current implementation.
+ */
+
 int lapq_compare(struct lapq *queue, const void *lhs, const void *rhs)
 {
     if ((queue->flags & LAPQ_ENABLE_STATS) != 0)

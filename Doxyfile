@@ -1,7 +1,7 @@
 PROJECT_NAME           = "lapq"
 PROJECT_BRIEF          = "Learning-augmented priority queue experiments"
 OUTPUT_DIRECTORY       = docs/api
-INPUT                  = include src benchmarks
+INPUT                  = include src benchmarks python/lapq
 FILE_PATTERNS          = *.h *.c
 RECURSIVE              = YES
 EXTRACT_ALL            = YES

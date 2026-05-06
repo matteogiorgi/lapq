@@ -2,6 +2,19 @@
 
 #include "lapq_internal.h"
 
+/**
+ * @file skiplist.c
+ * @brief Skip-list backend and hinted predecessor search.
+ *
+ * The skip list is the only backend in v0.1. Ordinary insertions perform a
+ * standard top-down search from the head. Predecessor-hinted insertions start
+ * from a caller-provided handle when valid, correct possible overshoot by
+ * moving backward, expand to the right using the local top level, and finish
+ * with a top-down refinement. All decisions that affect correctness are made
+ * with clean comparisons.
+ */
+
+/** @brief Advance the queue's xorshift RNG state. */
 static uint64_t lapq_next_random(struct lapq *queue)
 {
     uint64_t x = queue->rng;
