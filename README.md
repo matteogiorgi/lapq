@@ -48,8 +48,9 @@ Not implemented yet:
 
 - Dirty comparisons: there is only one clean comparator today.
 - A vEB-like or indexed auxiliary structure for rank predictions.
-- ML experiments. The intended split is a small C core for the data structure
-  and Python code for predictions, datasets, and plots.
+- Real ML models. The Python graph/dataset layer and synthetic hint scenarios
+  are present, but learned predictors are intentionally deferred until the
+  dataset format and baseline measurements are stable.
 
 ## Build
 
@@ -140,6 +141,9 @@ python -m lapq.dijkstra graphs/dimacs/USA-road-d.NY.gr \
 python -m lapq.dijkstra graphs/dimacs/USA-road-d.NY.gr \
     --source 1 --backend lapq-hints --hint-scenario all --csv dijkstra-hints.csv
 ```
+
+Local experiment outputs should be written under `results/`, which is ignored
+by Git.
 
 Build release artifacts with:
 

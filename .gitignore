@@ -23,5 +23,8 @@ tags
 # Local graph datasets
 graphs/dimacs/
 
+# Local experiment outputs
+results/
+
 # Generated API documentation
 docs/api/
