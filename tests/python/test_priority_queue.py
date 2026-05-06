@@ -39,6 +39,18 @@ def test_clear_and_stats():
     assert queue.stats()["clean_comparisons"] == 0
     queue.clear()
     assert len(queue) == 0
+    assert queue.check_invariants()
+
+
+def test_constructor_config_can_disable_stats():
+    queue = PriorityQueue(seed=123, stats=False)
+
+    queue.push(2.0, "b")
+    queue.push(1.0, "a")
+
+    assert queue.pop() == (1.0, "a")
+    assert queue.stats()["clean_comparisons"] == 0
+    assert queue.check_invariants()
 
 
 def test_predecessor_hint_handles():
@@ -56,6 +68,24 @@ def test_predecessor_hint_handles():
     assert queue.pop() == (1.0, "a")
     assert queue.pop() == (2.0, "b")
     assert queue.pop() == (3.0, "c")
+
+
+def test_remove_by_handle():
+    queue = PriorityQueue()
+
+    first = queue.push_handle(1.0, "a")
+    second = queue.push_handle(2.0, "b")
+    third = queue.push_handle(3.0, "c")
+
+    assert queue.remove(second) == (2.0, "b")
+    assert len(queue) == 2
+    assert queue.check_invariants()
+    with pytest.raises(KeyError):
+        queue.remove(second)
+    assert queue.pop() == (1.0, "a")
+    assert queue.pop() == (3.0, "c")
+    assert isinstance(first, Handle)
+    assert isinstance(third, Handle)
 
 
 def test_rank_hint_handles():

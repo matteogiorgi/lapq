@@ -14,13 +14,13 @@ struct py_lapq_item {
 
 typedef struct {
     PyObject_HEAD
-        struct lapq *queue;
+    struct lapq *queue;
     uint64_t next_sequence;
 } PyLapqPriorityQueue;
 
 typedef struct {
     PyObject_HEAD
-        struct lapq_handle handle;
+    struct lapq_handle handle;
 } PyLapqHandle;
 
 static PyTypeObject PyLapqHandleType = {
@@ -88,10 +88,22 @@ static PyObject *PyLapqPriorityQueue_new(
 )
 {
     PyLapqPriorityQueue *self;
-    struct lapq_config config = { 0, LAPQ_ENABLE_STATS };
+    static char *kwlist[] = { "seed", "stats", NULL };
+    unsigned long long seed = 0;
+    int enable_stats = 1;
+    struct lapq_config config;
 
-    (void)args;
-    (void)kwargs;
+    if (!PyArg_ParseTupleAndKeywords(
+            args,
+            kwargs,
+            "|Kp:PriorityQueue",
+            kwlist,
+            &seed,
+            &enable_stats
+        ))
+        return NULL;
+    config.seed = (uint64_t)seed;
+    config.flags = enable_stats ? LAPQ_ENABLE_STATS : 0;
     self = (PyLapqPriorityQueue *)type->tp_alloc(type, 0);
     if (self == NULL)
         return NULL;
@@ -259,6 +271,30 @@ static PyObject *PyLapqPriorityQueue_clear(
     Py_RETURN_NONE;
 }
 
+static PyObject *PyLapqPriorityQueue_remove(
+    PyLapqPriorityQueue *self,
+    PyObject *args
+)
+{
+    PyObject *handle_object;
+    struct lapq_handle handle;
+    struct py_lapq_item *item;
+    PyObject *result;
+
+    if (!PyArg_ParseTuple(args, "O:remove", &handle_object))
+        return NULL;
+    if (py_lapq_parse_handle(handle_object, &handle) != 0)
+        return NULL;
+    item = lapq_remove(self->queue, handle);
+    if (item == NULL) {
+        PyErr_SetString(PyExc_KeyError, "invalid or stale PriorityQueue handle");
+        return NULL;
+    }
+    result = Py_BuildValue("(dO)", item->key, item->value);
+    py_lapq_item_destroy(item);
+    return result;
+}
+
 static PyObject *PyLapqPriorityQueue_empty(
     PyLapqPriorityQueue *self,
     PyObject *Py_UNUSED(ignored)
@@ -300,6 +336,16 @@ static PyObject *PyLapqPriorityQueue_stats(
     );
 }
 
+static PyObject *PyLapqPriorityQueue_check_invariants(
+    PyLapqPriorityQueue *self,
+    PyObject *Py_UNUSED(ignored)
+)
+{
+    if (lapq_check_invariants(self->queue) == 0)
+        Py_RETURN_TRUE;
+    Py_RETURN_FALSE;
+}
+
 static PyObject *PyLapqPriorityQueue_reset_stats(
     PyLapqPriorityQueue *self,
     PyObject *Py_UNUSED(ignored)
@@ -328,8 +374,10 @@ static PyMethodDef PyLapqPriorityQueue_methods[] = {
     { "pop", (PyCFunction)PyLapqPriorityQueue_pop, METH_NOARGS, "Remove and return the minimum (key, value)." },
     { "peek", (PyCFunction)PyLapqPriorityQueue_peek, METH_NOARGS, "Return the minimum (key, value) without removing it." },
     { "clear", (PyCFunction)PyLapqPriorityQueue_clear, METH_NOARGS, "Remove all items." },
+    { "remove", (PyCFunction)PyLapqPriorityQueue_remove, METH_VARARGS, "Remove an item by handle and return its (key, value)." },
     { "empty", (PyCFunction)PyLapqPriorityQueue_empty, METH_NOARGS, "Return True if the queue is empty." },
     { "stats", (PyCFunction)PyLapqPriorityQueue_stats, METH_NOARGS, "Return instrumentation counters." },
+    { "check_invariants", (PyCFunction)PyLapqPriorityQueue_check_invariants, METH_NOARGS, "Return True if internal invariants hold." },
     { "reset_stats", (PyCFunction)PyLapqPriorityQueue_reset_stats, METH_NOARGS, "Reset instrumentation counters." },
     { NULL, NULL, 0, NULL }
 };

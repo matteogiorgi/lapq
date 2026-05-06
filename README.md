@@ -83,6 +83,12 @@ queue.push(1.0, "a")
 assert queue.pop() == (1.0, "a")
 ```
 
+`PriorityQueue` also exposes opaque handles for experiments: `push_handle`,
+`push_with_predecessor`, `push_with_rank`, `remove`, `check_invariants`, and
+instrumentation counters through `stats`. Python-facing `decrease_key` is not
+exposed yet because the binding needs an explicit policy for mutating the
+priority stored inside C-owned queue items.
+
 Prediction experiments can pass opaque handles back to the C core as
 predecessor hints. The C extension does not know how the prediction was
 computed; it only receives the already-computed hint and validates/corrects it
