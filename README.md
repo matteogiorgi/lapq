@@ -140,6 +140,9 @@ python -m lapq.dijkstra graphs/dimacs/USA-road-d.NY.gr \
 
 python -m lapq.dijkstra graphs/dimacs/USA-road-d.NY.gr \
     --source 1 --backend lapq-hints --hint-scenario all --csv dijkstra-hints.csv
+
+python -m lapq.analysis dijkstra.csv dijkstra-hints.csv \
+    --csv dijkstra-analysis.csv
 ```
 
 Local experiment outputs should be written under `results/`, which is ignored
