@@ -4,7 +4,10 @@ import pytest
 
 from lapq.datasets import (
     build_priority_queue_dataset_csv,
+    build_priority_queue_dataset_multi_source_csv,
     build_relaxation_dataset_csv,
+    build_relaxation_dataset_multi_source_csv,
+    choose_random_sources,
     collect_priority_queue_insertion_events,
     collect_relaxation_events,
     write_priority_queue_insertion_events_csv,
@@ -89,6 +92,7 @@ def test_collect_relaxation_events(tmp_path):
     assert events[0].source == 0
     assert events[0].node == 0
     assert events[0].target == 1
+    assert events[0].run == 0
     assert events[0].old_distance == inf
     assert events[0].new_distance == 2.0
     assert events[0].edge_weight == 2
@@ -107,9 +111,9 @@ def test_write_relaxation_events_csv(tmp_path):
 
     assert rows == 2
     assert output.read_text(encoding="utf-8").splitlines() == [
-        "step,source,node,target,old_distance,new_distance,edge_weight,queue_size",
-        "0,0,0,1,inf,2.0,2,1",
-        "1,0,0,2,inf,5.0,5,2",
+        "run,step,source,node,target,old_distance,new_distance,edge_weight,queue_size",
+        "0,0,0,0,1,inf,2.0,2,1",
+        "0,1,0,0,2,inf,5.0,5,2",
     ]
 
 
@@ -119,7 +123,7 @@ def test_build_relaxation_dataset_csv_and_cli(tmp_path):
 
     rows = build_relaxation_dataset_csv(graph_path, output, source=0, max_events=1)
     assert rows == 1
-    assert output.read_text(encoding="utf-8").splitlines()[1] == "0,0,0,1,inf,2.0,2,1"
+    assert output.read_text(encoding="utf-8").splitlines()[1] == "0,0,0,0,1,inf,2.0,2,1"
 
     cli_output = tmp_path / "dataset-cli.csv"
     assert datasets_main(
@@ -134,7 +138,7 @@ def test_build_relaxation_dataset_csv_and_cli(tmp_path):
             "1",
         ]
     ) == 0
-    assert cli_output.read_text(encoding="utf-8").splitlines()[1] == "0,0,0,1,inf,2.0,2,1"
+    assert cli_output.read_text(encoding="utf-8").splitlines()[1] == "0,0,0,0,1,inf,2.0,2,1"
 
 
 def test_priority_queue_insertion_events_and_csv(tmp_path):
@@ -146,6 +150,7 @@ def test_priority_queue_insertion_events_and_csv(tmp_path):
 
     assert len(events) == 3
     assert events[0].target == 1
+    assert events[0].run == 0
     assert events[0].distance == 2.0
     assert events[0].queue_size_before == 0
     assert events[0].predecessor_rank == -1
@@ -158,15 +163,77 @@ def test_priority_queue_insertion_events_and_csv(tmp_path):
     lines = output.read_text(encoding="utf-8").splitlines()
     assert rows == 3
     assert lines[0] == (
-        "step,source,node,target,distance,edge_weight,queue_size_before,"
+        "run,step,source,node,target,distance,edge_weight,queue_size_before,"
         "predecessor_rank,predecessor_distance,predecessor_node,"
         "predecessor_sequence"
     )
-    assert lines[1] == "0,0,0,1,2.0,2,0,-1,,,"
+    assert lines[1] == "0,0,0,0,1,2.0,2,0,-1,,,"
 
     built = tmp_path / "queue-built.csv"
     assert build_priority_queue_dataset_csv(graph_path, built, source=0, max_events=1) == 1
-    assert built.read_text(encoding="utf-8").splitlines()[1] == "0,0,0,1,2.0,2,0,-1,,,"
+    assert built.read_text(encoding="utf-8").splitlines()[1] == "0,0,0,0,1,2.0,2,0,-1,,,"
+
+
+def test_multi_source_dataset_generation(tmp_path):
+    graph_path = write_dimacs(tmp_path)
+    graph = load_dimacs_csr(graph_path)
+    queue_output = tmp_path / "queue-multi.csv"
+    relaxation_output = tmp_path / "relax-multi.csv"
+
+    assert choose_random_sources(graph, count=3, seed=123) == [0, 2, 4]
+    queue_rows = build_priority_queue_dataset_multi_source_csv(
+        graph_path,
+        queue_output,
+        sources=[0, 1],
+        max_events_per_source=1,
+    )
+    relaxation_rows = build_relaxation_dataset_multi_source_csv(
+        graph_path,
+        relaxation_output,
+        sources=[0, 1],
+        max_events_per_source=1,
+    )
+
+    queue_lines = queue_output.read_text(encoding="utf-8").splitlines()
+    relaxation_lines = relaxation_output.read_text(encoding="utf-8").splitlines()
+    assert queue_rows == 2
+    assert relaxation_rows == 2
+    assert queue_lines[1].startswith("0,0,0,0,1,")
+    assert queue_lines[2].startswith("1,0,1,1,2,")
+    assert relaxation_lines[1].startswith("0,0,0,0,1,")
+    assert relaxation_lines[2].startswith("1,0,1,1,2,")
+
+
+def test_dataset_cli_multi_source_modes(tmp_path):
+    graph_path = write_dimacs(tmp_path)
+    manual_output = tmp_path / "manual.csv"
+    sampled_output = tmp_path / "sampled.csv"
+
+    assert datasets_main(
+        [
+            str(graph_path),
+            str(manual_output),
+            "--sources",
+            "1,2",
+            "--max-events-per-source",
+            "1",
+        ]
+    ) == 0
+    assert datasets_main(
+        [
+            str(graph_path),
+            str(sampled_output),
+            "--source-count",
+            "2",
+            "--source-seed",
+            "123",
+            "--max-events-per-source",
+            "1",
+        ]
+    ) == 0
+
+    assert len(manual_output.read_text(encoding="utf-8").splitlines()) == 3
+    assert len(sampled_output.read_text(encoding="utf-8").splitlines()) == 3
 
 
 def test_benchmark_dijkstra_backends_and_csv(tmp_path):

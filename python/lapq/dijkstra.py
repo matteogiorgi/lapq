@@ -240,9 +240,7 @@ def dijkstra_lapq_hinted(
     queue = PriorityQueue()
     first_handle = queue.push_handle(0.0, (0, source))
     heap: list[tuple[float, int, int]] = [(0.0, 0, source)]
-    active: list[tuple[float, int, int, Handle]] = [
-        (0.0, 0, source, first_handle)
-    ]
+    active: list[tuple[float, int, int, Handle]] = [(0.0, 0, source, first_handle)]
     next_sequence = 1
     settled = 0
     relaxations = 0
@@ -269,6 +267,13 @@ def dijkstra_lapq_hinted(
                 continue
 
             rank = bisect_left(active, (candidate, next_sequence, target))
+            predecessor_rank = _predicted_predecessor_rank(
+                active,
+                rank,
+                scenario,
+                noise,
+            )
+            error = _hint_error_from_predecessor_rank(rank, predecessor_rank)
             handle = _push_hinted_entry(
                 queue,
                 active,
@@ -277,9 +282,8 @@ def dijkstra_lapq_hinted(
                 target,
                 rank,
                 scenario,
-                noise,
+                predecessor_rank,
             )
-            error = _hint_error(active, rank, scenario, noise)
             total_error += error
             max_error = max(max_error, error)
             hinted += 0 if scenario == "baseline" else 1
@@ -322,7 +326,7 @@ def _push_hinted_entry(
     node: int,
     rank: int,
     scenario: DijkstraHintScenario,
-    noise: int,
+    predecessor_rank: int | None,
 ) -> Handle:
     value = (sequence, node)
     if scenario == "baseline" or not active:
@@ -330,7 +334,6 @@ def _push_hinted_entry(
     if scenario == "rank":
         return queue.push_with_rank(distance, value, rank)
 
-    predecessor_rank = _predicted_predecessor_rank(active, rank, scenario, noise)
     if predecessor_rank is None:
         return queue.push_handle(distance, value)
     return queue.push_with_predecessor(distance, value, active[predecessor_rank][3])
@@ -354,17 +357,10 @@ def _predicted_predecessor_rank(
     return None
 
 
-def _hint_error(
-    active: list[tuple[float, int, int, Handle]],
+def _hint_error_from_predecessor_rank(
     rank: int,
-    scenario: DijkstraHintScenario,
-    noise: int,
+    predecessor_rank: int | None,
 ) -> int:
-    if scenario == "baseline":
-        return 0
-    if scenario == "rank":
-        return 0
-    predecessor_rank = _predicted_predecessor_rank(active, rank, scenario, noise)
     true_predecessor = rank - 1
     if predecessor_rank is None or true_predecessor < 0:
         return 0

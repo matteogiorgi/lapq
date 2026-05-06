@@ -52,6 +52,11 @@ Not implemented yet:
   are present, but learned predictors are intentionally deferred until the
   dataset format and baseline measurements are stable.
 
+Experiment reports treat clean comparisons as the primary algorithmic metric.
+Wall-clock time is still recorded, but Python binding costs, hint-generation
+costs, and auxiliary oracle structures can otherwise hide the effect of
+predictions on the C data structure itself.
+
 ## Build
 
 ```sh
@@ -135,6 +140,9 @@ match DIMACS files:
 python -m lapq.datasets graphs/dimacs/USA-road-d.NY.gr events.csv \
     --source 1 --max-events 100000
 
+python -m lapq.datasets graphs/dimacs/USA-road-d.NY.gr events-ms.csv \
+    --source-count 8 --source-seed 123 --max-events-per-source 50000
+
 python -m lapq.dijkstra graphs/dimacs/USA-road-d.NY.gr \
     --source 1 --backend both --csv dijkstra.csv
 
@@ -143,6 +151,12 @@ python -m lapq.dijkstra graphs/dimacs/USA-road-d.NY.gr \
 
 python -m lapq.analysis dijkstra.csv dijkstra-hints.csv \
     --csv dijkstra-analysis.csv
+
+python -m lapq.analysis --queue-events events-ms.csv \
+    --csv events-ms-analysis.csv
+
+python -m lapq.replay events-ms.csv \
+    --scenario heapq,baseline,perfect,noisy,bad_left --noise 64 --csv replay.csv
 ```
 
 Local experiment outputs should be written under `results/`, which is ignored

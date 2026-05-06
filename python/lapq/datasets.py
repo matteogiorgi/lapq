@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import random
 from array import array
 from bisect import bisect_left, insort
 from collections.abc import Iterable
@@ -18,6 +19,7 @@ from .graph import CSRGraph, load_dimacs_csr
 
 @dataclass(frozen=True)
 class RelaxationEvent:
+    run: int
     step: int
     source: int
     node: int
@@ -30,6 +32,7 @@ class RelaxationEvent:
 
 @dataclass(frozen=True)
 class PriorityQueueInsertionEvent:
+    run: int
     step: int
     source: int
     node: int
@@ -47,6 +50,7 @@ def iter_relaxation_events(
     graph: CSRGraph,
     source: int,
     max_events: int | None = None,
+    run: int = 0,
 ) -> Iterator[RelaxationEvent]:
     """Yield successful Dijkstra relaxation events for dataset generation."""
 
@@ -73,6 +77,7 @@ def iter_relaxation_events(
             distances[target] = new_distance
             heappush(queue, (new_distance, target))
             event = RelaxationEvent(
+                run=run,
                 step=step,
                 source=source,
                 node=node,
@@ -101,6 +106,7 @@ def iter_priority_queue_insertion_events(
     graph: CSRGraph,
     source: int,
     max_events: int | None = None,
+    run: int = 0,
 ) -> Iterator[PriorityQueueInsertionEvent]:
     """Yield queue insertion events with Python-computed predecessor targets."""
 
@@ -132,6 +138,7 @@ def iter_priority_queue_insertion_events(
             rank = bisect_left(active, insertion)
             predecessor = active[rank - 1] if rank > 0 else None
             event = PriorityQueueInsertionEvent(
+                run=run,
                 step=step,
                 source=source,
                 node=node,
@@ -177,6 +184,7 @@ def write_relaxation_events_csv(
         writer = csv.writer(file)
         writer.writerow(
             [
+                "run",
                 "step",
                 "source",
                 "node",
@@ -190,6 +198,7 @@ def write_relaxation_events_csv(
         for event in events:
             writer.writerow(
                 [
+                    event.run,
                     event.step,
                     event.source,
                     event.node,
@@ -213,6 +222,7 @@ def write_priority_queue_insertion_events_csv(
         writer = csv.writer(file)
         writer.writerow(
             [
+                "run",
                 "step",
                 "source",
                 "node",
@@ -229,6 +239,7 @@ def write_priority_queue_insertion_events_csv(
         for event in events:
             writer.writerow(
                 [
+                    event.run,
                     event.step,
                     event.source,
                     event.node,
@@ -259,6 +270,23 @@ def build_relaxation_dataset_csv(
     )
 
 
+def build_relaxation_dataset_multi_source_csv(
+    graph_path: str | Path,
+    output_path: str | Path,
+    sources: list[int],
+    max_events_per_source: int | None = None,
+) -> int:
+    graph = load_dimacs_csr(graph_path)
+    return write_relaxation_events_csv(
+        _iter_multi_source_relaxation_events(
+            graph,
+            sources,
+            max_events_per_source=max_events_per_source,
+        ),
+        output_path,
+    )
+
+
 def build_priority_queue_dataset_csv(
     graph_path: str | Path,
     output_path: str | Path,
@@ -270,6 +298,63 @@ def build_priority_queue_dataset_csv(
         iter_priority_queue_insertion_events(graph, source, max_events=max_events),
         output_path,
     )
+
+
+def build_priority_queue_dataset_multi_source_csv(
+    graph_path: str | Path,
+    output_path: str | Path,
+    sources: list[int],
+    max_events_per_source: int | None = None,
+) -> int:
+    graph = load_dimacs_csr(graph_path)
+    return write_priority_queue_insertion_events_csv(
+        _iter_multi_source_priority_queue_events(
+            graph,
+            sources,
+            max_events_per_source=max_events_per_source,
+        ),
+        output_path,
+    )
+
+
+def choose_random_sources(
+    graph: CSRGraph,
+    count: int,
+    seed: int,
+) -> list[int]:
+    if count < 0:
+        raise ValueError("source count must be non-negative")
+    if count > graph.num_nodes:
+        raise ValueError("source count exceeds graph node count")
+    return random.Random(seed).sample(range(graph.num_nodes), count)
+
+
+def _iter_multi_source_relaxation_events(
+    graph: CSRGraph,
+    sources: list[int],
+    max_events_per_source: int | None,
+) -> Iterator[RelaxationEvent]:
+    for run, source in enumerate(sources):
+        yield from iter_relaxation_events(
+            graph,
+            source,
+            max_events=max_events_per_source,
+            run=run,
+        )
+
+
+def _iter_multi_source_priority_queue_events(
+    graph: CSRGraph,
+    sources: list[int],
+    max_events_per_source: int | None,
+) -> Iterator[PriorityQueueInsertionEvent]:
+    for run, source in enumerate(sources):
+        yield from iter_priority_queue_insertion_events(
+            graph,
+            source,
+            max_events=max_events_per_source,
+            run=run,
+        )
 
 
 def _remove_active_entry(
@@ -301,30 +386,102 @@ def main(argv: list[str] | None = None) -> int:
         help="1-based DIMACS source node id (default: 1)",
     )
     parser.add_argument(
+        "--sources",
+        default=None,
+        help="comma-separated 1-based DIMACS source ids",
+    )
+    parser.add_argument(
+        "--source-count",
+        type=int,
+        default=None,
+        help="number of pseudo-random sources to sample",
+    )
+    parser.add_argument(
+        "--source-seed",
+        type=int,
+        default=123,
+        help="seed used with --source-count (default: 123)",
+    )
+    parser.add_argument(
         "--max-events",
         type=int,
         default=None,
-        help="maximum number of relaxation events to emit",
+        help="maximum number of events to emit for a single-source run",
+    )
+    parser.add_argument(
+        "--max-events-per-source",
+        type=int,
+        default=None,
+        help="maximum number of events to emit for each source",
     )
     args = parser.parse_args(argv)
     if args.source <= 0:
         parser.error("--source must be a positive 1-based node id")
+    if args.source_count is not None and args.sources is not None:
+        parser.error("--sources and --source-count are mutually exclusive")
+    if args.source_count is not None and args.source_count <= 0:
+        parser.error("--source-count must be positive")
+    if args.max_events is not None and args.max_events < 0:
+        parser.error("--max-events must be non-negative")
+    if args.max_events_per_source is not None and args.max_events_per_source < 0:
+        parser.error("--max-events-per-source must be non-negative")
+
+    graph = load_dimacs_csr(args.graph)
+    sources = _resolve_sources(args, graph)
+    max_events_per_source = (
+        args.max_events_per_source
+        if args.max_events_per_source is not None
+        else args.max_events
+    )
     if args.kind == "relaxations":
-        rows = build_relaxation_dataset_csv(
-            args.graph,
+        rows = write_relaxation_events_csv(
+            _iter_multi_source_relaxation_events(
+                graph,
+                sources,
+                max_events_per_source=max_events_per_source,
+            ),
             args.output,
-            source=args.source - 1,
-            max_events=args.max_events,
         )
     else:
-        rows = build_priority_queue_dataset_csv(
-            args.graph,
+        rows = write_priority_queue_insertion_events_csv(
+            _iter_multi_source_priority_queue_events(
+                graph,
+                sources,
+                max_events_per_source=max_events_per_source,
+            ),
             args.output,
-            source=args.source - 1,
-            max_events=args.max_events,
         )
     print(f"wrote {rows} {args.kind} events to {args.output}")
     return 0
+
+
+def _resolve_sources(args: argparse.Namespace, graph: CSRGraph) -> list[int]:
+    if args.sources is not None:
+        sources = _parse_sources(args.sources)
+    elif args.source_count is not None:
+        sources = choose_random_sources(graph, args.source_count, args.source_seed)
+    else:
+        sources = [args.source - 1]
+
+    for source in sources:
+        if source < 0 or source >= graph.num_nodes:
+            raise SystemExit(f"source out of range: {source + 1}")
+    return sources
+
+
+def _parse_sources(value: str) -> list[int]:
+    sources: list[int] = []
+    for raw in value.split(","):
+        raw = raw.strip()
+        if raw == "":
+            continue
+        source = int(raw)
+        if source <= 0:
+            raise SystemExit("sources must be positive 1-based node ids")
+        sources.append(source - 1)
+    if not sources:
+        raise SystemExit("--sources must contain at least one source id")
+    return sources
 
 
 if __name__ == "__main__":
