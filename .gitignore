@@ -15,6 +15,10 @@ env/
 ENV/
 
 # VS Code local settings
-.vscode/settings.json
-.vscode/launch.json
-.vscode/tasks.json
+.vscode/
+
+# Ctags
+tags
+
+# Local graph datasets
+graphs/dimacs/

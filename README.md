@@ -48,8 +48,8 @@ Not implemented yet:
 
 - Dirty comparisons: there is only one clean comparator today.
 - A vEB-like or indexed auxiliary structure for rank predictions.
-- Python bindings and ML experiments. The intended split is a small C core for
-  the data structure and Python code for predictions, datasets, and plots.
+- ML experiments. The intended split is a small C core for the data structure
+  and Python code for predictions, datasets, and plots.
 
 ## Build
 
@@ -81,6 +81,58 @@ queue = PriorityQueue()
 queue.push(2.0, "b")
 queue.push(1.0, "a")
 assert queue.pop() == (1.0, "a")
+```
+
+Prediction experiments can pass opaque handles back to the C core as
+predecessor hints. The C extension does not know how the prediction was
+computed; it only receives the already-computed hint and validates/corrects it
+with clean comparisons.
+
+```python
+from lapq import PriorityQueue
+
+queue = PriorityQueue()
+first = queue.push_handle(1.0, "a")
+queue.push_with_predecessor(2.0, "b", first)
+```
+
+The first Python experiment helpers are intentionally synthetic: they are meant
+to exercise the hint API before introducing real models.
+
+```python
+from lapq import run_insertion_scenario
+
+result = run_insertion_scenario(10000, "noisy", noise=64)
+print(result.stats, result.avg_error, result.max_error)
+```
+
+For graph experiments, DIMACS shortest-path graphs can be loaded into a compact
+CSR representation and explored with Dijkstra. The first implementation uses
+lazy duplicate queue entries; a true Python-facing `decrease_key` binding can be
+added later without changing the graph/dataset layer.
+
+```python
+from lapq.datasets import collect_priority_queue_insertion_events
+from lapq.dijkstra import dijkstra_lapq_hinted
+from lapq.graph import load_dimacs_csr
+
+graph = load_dimacs_csr("graphs/dimacs/USA-road-d.NY.gr")
+result = dijkstra_lapq_hinted(graph, source=0, scenario="perfect")
+events = collect_priority_queue_insertion_events(graph, source=0, max_events=1000)
+```
+
+The same path is available from the command line. CLI source ids are 1-based to
+match DIMACS files:
+
+```sh
+python -m lapq.datasets graphs/dimacs/USA-road-d.NY.gr events.csv \
+    --source 1 --max-events 100000
+
+python -m lapq.dijkstra graphs/dimacs/USA-road-d.NY.gr \
+    --source 1 --backend both --csv dijkstra.csv
+
+python -m lapq.dijkstra graphs/dimacs/USA-road-d.NY.gr \
+    --source 1 --backend lapq-hints --hint-scenario all --csv dijkstra-hints.csv
 ```
 
 Build release artifacts with:

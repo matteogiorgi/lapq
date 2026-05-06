@@ -14,9 +14,18 @@ struct py_lapq_item {
 
 typedef struct {
     PyObject_HEAD
-    struct lapq *queue;
+        struct lapq *queue;
     uint64_t next_sequence;
 } PyLapqPriorityQueue;
+
+typedef struct {
+    PyObject_HEAD
+        struct lapq_handle handle;
+} PyLapqHandle;
+
+static PyTypeObject PyLapqHandleType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+};
 
 static int py_lapq_item_cmp(const void *lhs, const void *rhs)
 {
@@ -40,6 +49,36 @@ static void py_lapq_item_destroy(struct py_lapq_item *item)
         return;
     Py_XDECREF(item->value);
     free(item);
+}
+
+static PyObject *PyLapqHandle_create(struct lapq_handle handle)
+{
+    PyLapqHandle *self = PyObject_New(PyLapqHandle, &PyLapqHandleType);
+
+    if (self == NULL)
+        return NULL;
+    self->handle = handle;
+    return (PyObject *)self;
+}
+
+static PyObject *PyLapqHandle_repr(PyLapqHandle *self)
+{
+    return PyUnicode_FromFormat(
+        "<lapq.Handle queue_id=%llu slot=%zu generation=%u>",
+        (unsigned long long)self->handle.queue_id,
+        self->handle.slot,
+        self->handle.generation
+    );
+}
+
+static int py_lapq_parse_handle(PyObject *object, struct lapq_handle *out)
+{
+    if (!PyObject_TypeCheck(object, &PyLapqHandleType)) {
+        PyErr_SetString(PyExc_TypeError, "expected lapq.Handle");
+        return -1;
+    }
+    *out = ((PyLapqHandle *)object)->handle;
+    return 0;
 }
 
 static PyObject *PyLapqPriorityQueue_new(
@@ -66,6 +105,38 @@ static PyObject *PyLapqPriorityQueue_new(
     return (PyObject *)self;
 }
 
+static PyObject *PyLapqPriorityQueue_insert_item(
+    PyLapqPriorityQueue *self,
+    double key,
+    PyObject *value,
+    struct lapq_hint hint,
+    int return_handle
+)
+{
+    struct py_lapq_item *item;
+    struct lapq_handle handle;
+    int status;
+
+    item = malloc(sizeof(*item));
+    if (item == NULL)
+        return PyErr_NoMemory();
+    item->key = key;
+    item->sequence = self->next_sequence++;
+    Py_INCREF(value);
+    item->value = value;
+    if (return_handle)
+        status = lapq_insert_handle_hint(self->queue, item, hint, &handle);
+    else
+        status = lapq_insert_hint(self->queue, item, hint);
+    if (status != 0) {
+        py_lapq_item_destroy(item);
+        return PyErr_NoMemory();
+    }
+    if (return_handle)
+        return PyLapqHandle_create(handle);
+    Py_RETURN_NONE;
+}
+
 static void PyLapqPriorityQueue_dealloc(PyLapqPriorityQueue *self)
 {
     if (self->queue != NULL) {
@@ -87,22 +158,66 @@ static PyObject *PyLapqPriorityQueue_push(
 {
     double key;
     PyObject *value;
-    struct py_lapq_item *item;
+    struct lapq_hint hint;
 
     if (!PyArg_ParseTuple(args, "dO:push", &key, &value))
         return NULL;
-    item = malloc(sizeof(*item));
-    if (item == NULL)
-        return PyErr_NoMemory();
-    item->key = key;
-    item->sequence = self->next_sequence++;
-    Py_INCREF(value);
-    item->value = value;
-    if (lapq_insert(self->queue, item) != 0) {
-        py_lapq_item_destroy(item);
-        return PyErr_NoMemory();
+    hint.kind = LAPQ_HINT_NONE;
+    return PyLapqPriorityQueue_insert_item(self, key, value, hint, 0);
+}
+
+static PyObject *PyLapqPriorityQueue_push_handle(
+    PyLapqPriorityQueue *self,
+    PyObject *args
+)
+{
+    double key;
+    PyObject *value;
+    struct lapq_hint hint;
+
+    if (!PyArg_ParseTuple(args, "dO:push_handle", &key, &value))
+        return NULL;
+    hint.kind = LAPQ_HINT_NONE;
+    return PyLapqPriorityQueue_insert_item(self, key, value, hint, 1);
+}
+
+static PyObject *PyLapqPriorityQueue_push_with_predecessor(
+    PyLapqPriorityQueue *self,
+    PyObject *args
+)
+{
+    double key;
+    PyObject *value;
+    PyObject *predecessor;
+    struct lapq_hint hint;
+
+    if (!PyArg_ParseTuple(args, "dOO:push_with_predecessor", &key, &value, &predecessor))
+        return NULL;
+    hint.kind = LAPQ_HINT_PREDECESSOR;
+    if (py_lapq_parse_handle(predecessor, &hint.as.predecessor) != 0)
+        return NULL;
+    return PyLapqPriorityQueue_insert_item(self, key, value, hint, 1);
+}
+
+static PyObject *PyLapqPriorityQueue_push_with_rank(
+    PyLapqPriorityQueue *self,
+    PyObject *args
+)
+{
+    double key;
+    PyObject *value;
+    Py_ssize_t rank;
+    struct lapq_hint hint;
+
+    if (!PyArg_ParseTuple(args, "dOn:push_with_rank", &key, &value, &rank))
+        return NULL;
+    if (rank < 0) {
+        PyErr_SetString(PyExc_ValueError, "rank must be non-negative");
+        return NULL;
     }
-    Py_RETURN_NONE;
+    hint.kind = LAPQ_HINT_RANK;
+    hint.as.rank = (size_t)rank;
+    return PyLapqPriorityQueue_insert_item(self, key, value, hint, 1);
 }
 
 static PyObject *PyLapqPriorityQueue_pop(PyLapqPriorityQueue *self, PyObject *Py_UNUSED(ignored))
@@ -207,6 +322,9 @@ static Py_ssize_t PyLapqPriorityQueue_len(PyLapqPriorityQueue *self)
 
 static PyMethodDef PyLapqPriorityQueue_methods[] = {
     { "push", (PyCFunction)PyLapqPriorityQueue_push, METH_VARARGS, "Push value with numeric priority." },
+    { "push_handle", (PyCFunction)PyLapqPriorityQueue_push_handle, METH_VARARGS, "Push value and return an opaque handle for hinting." },
+    { "push_with_predecessor", (PyCFunction)PyLapqPriorityQueue_push_with_predecessor, METH_VARARGS, "Push value using a predecessor handle hint and return its handle." },
+    { "push_with_rank", (PyCFunction)PyLapqPriorityQueue_push_with_rank, METH_VARARGS, "Push value using a rank hint and return its handle." },
     { "pop", (PyCFunction)PyLapqPriorityQueue_pop, METH_NOARGS, "Remove and return the minimum (key, value)." },
     { "peek", (PyCFunction)PyLapqPriorityQueue_peek, METH_NOARGS, "Return the minimum (key, value) without removing it." },
     { "clear", (PyCFunction)PyLapqPriorityQueue_clear, METH_NOARGS, "Remove all items." },
@@ -244,6 +362,14 @@ PyMODINIT_FUNC PyInit__lapq(void)
 {
     PyObject *module;
 
+    PyLapqHandleType.tp_name = "lapq.Handle";
+    PyLapqHandleType.tp_basicsize = sizeof(PyLapqHandle);
+    PyLapqHandleType.tp_flags = Py_TPFLAGS_DEFAULT;
+    PyLapqHandleType.tp_doc = "Opaque LAPQ handle used as a prediction hint.";
+    PyLapqHandleType.tp_repr = (reprfunc)PyLapqHandle_repr;
+    if (PyType_Ready(&PyLapqHandleType) < 0)
+        return NULL;
+
     PyLapqPriorityQueue_sequence.sq_length = (lenfunc)PyLapqPriorityQueue_len;
     PyLapqPriorityQueueType.tp_name = "lapq.PriorityQueue";
     PyLapqPriorityQueueType.tp_basicsize = sizeof(PyLapqPriorityQueue);
@@ -261,6 +387,12 @@ PyMODINIT_FUNC PyInit__lapq(void)
     Py_INCREF(&PyLapqPriorityQueueType);
     if (PyModule_AddObject(module, "PriorityQueue", (PyObject *)&PyLapqPriorityQueueType) < 0) {
         Py_DECREF(&PyLapqPriorityQueueType);
+        Py_DECREF(module);
+        return NULL;
+    }
+    Py_INCREF(&PyLapqHandleType);
+    if (PyModule_AddObject(module, "Handle", (PyObject *)&PyLapqHandleType) < 0) {
+        Py_DECREF(&PyLapqHandleType);
         Py_DECREF(module);
         return NULL;
     }
