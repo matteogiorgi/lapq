@@ -22,3 +22,6 @@ tags
 
 # Local graph datasets
 graphs/dimacs/
+
+# Generated API documentation
+docs/api/

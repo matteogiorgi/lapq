@@ -6,6 +6,7 @@ BUILD_DIR ?= build
 TEST_ENV ?=
 PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 JUPYTER ?= $(if $(wildcard .venv/bin/jupyter),.venv/bin/jupyter,jupyter)
+DOXYGEN ?= doxygen
 
 LIB := $(BUILD_DIR)/liblapq.a
 OBJ := \
@@ -19,7 +20,7 @@ REPORT_NOTEBOOK := $(DOCS_DIR)/$(REPORT_BASENAME).ipynb
 REPORT_PDF := $(DOCS_DIR)/$(REPORT_BASENAME).pdf
 REPORT_TEMPLATE := $(DOCS_DIR)/templates/academic-paper.tex.j2
 
-.PHONY: all test sanitize python-test check benchmark package docs clean
+.PHONY: all test sanitize python-test check benchmark package docs api-docs clean
 
 all: $(LIB)
 
@@ -59,6 +60,9 @@ package:
 	$(PYTHON) -m build --no-isolation
 
 docs: $(REPORT_PDF)
+
+api-docs:
+	$(DOXYGEN) Doxyfile
 
 $(REPORT_PDF): $(REPORT_NOTEBOOK) $(DOCS_DIR)/references.bib $(REPORT_TEMPLATE)
 	$(JUPYTER) nbconvert $< --to pdf --template-file $(REPORT_TEMPLATE) --no-prompt --TagRemovePreprocessor.enabled=True --TagRemovePreprocessor.remove_input_tags='["hide"]' --TagRemovePreprocessor.remove_all_outputs_tags='["hide-output"]' --output $(REPORT_BASENAME) --output-dir $(DOCS_DIR)
